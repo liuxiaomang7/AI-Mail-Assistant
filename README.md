@@ -41,7 +41,7 @@ ai-mail-assistant/
 ├── CHANGELOG.md        \# \<-- 项目变更日志
 ├── docker-compose.yml  \# \<-- Docker 编排文件
 ├── Dockerfile          \# \<-- Docker 镜像构建文件
-[cite\_start]├── requirements.txt    \# \<-- Python 依赖项 
+├── requirements.txt    \# \<-- Python 依赖项 
 └── src/
     └── mail\_processor.py   \# \<-- 核心应用逻辑 (v1.6.0)
 
