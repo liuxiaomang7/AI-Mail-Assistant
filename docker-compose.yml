@@ -1,0 +1,23 @@
+services:
+  mail-processor:
+    # 指向我们上面创建的 Dockerfile
+    build: .
+    container_name: mail-processor
+    
+    # 确保容器崩溃或 NAS 重启后自动运行
+    restart: unless-stopped
+    
+    # 将 .env 文件中的变量注入容器
+    env_file: .env
+    
+    volumes:
+      # 将 NAS 上的路径挂载到容器内
+      # 这样我们可以持久化存储日志，方便调试
+      - ./logs:/app/logs
+      
+      # 挂载源码目录（非常重要）
+      # 如果你修改了 src/mail_processor.py，只需要重启容器即可生效
+      - ./src:/app/src
+      
+      # [✅ 修复] 添加这一行，将宿主机的时区同步给容器
+      - /etc/localtime:/etc/localtime:ro

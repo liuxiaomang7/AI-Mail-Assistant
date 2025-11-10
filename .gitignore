@@ -1,0 +1,13 @@
+# 忽略环境变量文件
+.env
+
+# 忽略日志文件目录
+logs/
+
+# 忽略 Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 忽略 Docker 调试文件
+.dockerignore

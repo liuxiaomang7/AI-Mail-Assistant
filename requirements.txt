@@ -1,0 +1,5 @@
+imap-tools
+openai
+python-dotenv
+beautifulsoup4
+tenacity
