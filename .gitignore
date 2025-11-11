@@ -1,5 +1,5 @@
 # 忽略环境变量文件
-env
+.env
 
 # 忽略日志文件目录
 logs/
@@ -11,5 +11,3 @@ __pycache__/
 
 # 忽略 Docker 调试文件
 dockerignore
-
-.env
