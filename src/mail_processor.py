@@ -151,11 +151,12 @@ def classify_email(sender, subject, body_text):
 
     2.  "is_blocked_region" (受限区域 - 需求 #12):
         - true: 如果邮件正文、主题或发件人信息中 **明确提到** 以下任一关键词 (不区分大小写)。
-        - 关键词 (地区): Africa, Middle East, Southeast Asia
+        - 关键词 (地区): Africa, Middle East, Southeast Asia, **South Asia (南亚)**
         - 关键词 (国家/地区): Taiwan, Korea (South Korea)
         - 关键词 (非洲国家示例): Nigeria, Ethiopia, Egypt, DRC, Congo, Tanzania, South Africa, Kenya, Uganda, Algeria, Sudan, Morocco, Angola, Mozambique, Ghana, Madagascar, Cameroon, Côte d'Ivoire, Niger, Burkina Faso, Mali, Malawi, Zambia, Senegal, Chad, Somalia, Zimbabwe, Guinea, Rwanda, Benin, Burundi, Tunisia, Togo, Sierra Leone, Libya, Liberia, Mauritania, Namibia, Botswana, Gabon, Lesotho, Swaziland, Djibouti
         - 关键词 (中东国家示例): Bahrain, Cyprus, Egypt, Iran, Iraq, Israel, Jordan, Kuwait, Lebanon, Oman, Qatar, Saudi Arabia, Syria, Turkey, United Arab Emirates (UAE), Yemen, Palestine
         - 关键词 (东南亚国家示例): Vietnam, Thailand, Malaysia, Indonesia, Philippines, Singapore, Myanmar, Cambodia, Laos, Brunei, Timor-Leste
+        - **[✅ v1.7.0 优化] 关键词 (南亚国家示例): Pakistan, India, Bangladesh, Sri Lanka, Nepal, Bhutan, Maldives**
 
     3.  "is_priority_region" (优先区域 - 需求 #13):
         - true: 如果邮件正文、主题或发件人信息中 **明确提到** 以下任一关键词 (不区分大小写)。
@@ -164,7 +165,7 @@ def classify_email(sender, subject, body_text):
         - 关键词 (欧盟国家示例): Austria, Belgium, Bulgaria, Croatia, Republic of Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, Sweden
 
     [重要规则]:
-    - 你的任务是“关键词匹配”。如果邮件中出现了 'Nigeria'，'is_blocked_region' 就必须是 true。
+    - 你的任务是“关键词匹配”。如果邮件中出现了 'Pakistan'，'is_blocked_region' 就必须是 true。
     - "is_blocked_region" 和 "is_priority_region" 可以同时为 true (例如邮件同时提到了德国和台湾)。
     - 我们的处理逻辑会优先处理 "is_blocked_region"。
     - "intent" 为 "INQUIRY" 的判断应独立于地区判断。
