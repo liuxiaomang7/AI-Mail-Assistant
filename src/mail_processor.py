@@ -352,8 +352,27 @@ def process_emails():
                     continue 
                 # [✅ v1.6.0 逻辑更新结束]
 
-                # 2. AI 分类 (已加入重试)
+                # 2. 清理正文
                 body_text = clean_email_body(msg.html or msg.text)
+
+                # [✅ v1.7.0 新增逻辑] 检查邮件正文是否包含内部域名
+                body_text_lower = body_text.lower()
+                contains_internal_domain = False
+                
+                # EXCLUDE_DOMAINS 是从 .env 加载的，并且在启动时已转为小写
+                for domain in EXCLUDE_DOMAINS: 
+                    if domain in body_text_lower:
+                        contains_internal_domain = True
+                        logger.info(f"邮件 (UID: {uid}) 正文检测到内部域名: {domain}。")
+                        break
+                
+                if contains_internal_domain:
+                    logger.info(f"邮件 (UID: {uid}) 判定为内部讨论，标记为已读并跳过。")
+                    mailbox.flag(uid, r'\Seen', True)
+                    continue
+                # [✅ v1.7.0 逻辑结束]
+
+                # 3. AI 分类 (已加入重试)
                 classification_data = classify_email(sender, subject, body_text)
 
                 intent = classification_data.get('intent', 'OTHER')
@@ -424,8 +443,8 @@ def process_emails():
 # --- 4. 启动器 ---
 
 if __name__ == "__main__":
-    # [✅ v1.6.0] 更新启动日志版本号
-    logger.info(f"邮件自动处理器 v1.6.0 启动，轮询间隔: {POLLING_INTERVAL} 秒。")
+    # [✅ v1.7.0] 更新启动日志版本号
+    logger.info(f"邮件自动处理器 v1.7.0 启动，轮询间隔: {POLLING_INTERVAL} 秒。")
     
     while True:
         try:

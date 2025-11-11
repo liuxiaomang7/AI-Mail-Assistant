@@ -1,5 +1,13 @@
 # 项目变更日志 (Mail Processor)
 
+## [v1.7.0] - 2025-11-11 (逻辑修复与AI增强)
+
+### 修复 (Fixed)
+* **[内部讨论]** 在 `process_emails` 函数中增加了新的检查逻辑。在调用 AI 之前，脚本现在会检查邮件**正文 (Body)** 是否包含 `EXCLUDE_DOMAINS` 中的内部域名。如果包含，则将该邮件视为内部讨论，自动标记已读并跳过，防止了对抄送邮件的错误回复。
+* **[AI 提示词]** 更新 `classify_email` 的 `system_prompt`，将“南亚”(South Asia) 及其国家 (如 Pakistan, India) 添加到 `is_blocked_region` (受限区域) 关键词列表中，以防止回复来自该地区的询盘。
+
+---
+
 ## [v1.6.0] - 2025-11-10 (安全与配置强化)
 
 ### 安全 (Security)
