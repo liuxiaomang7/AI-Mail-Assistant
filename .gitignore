@@ -12,3 +12,4 @@ __pycache__/
 # 忽略 Docker 调试文件
 dockerignore
 
+.env
