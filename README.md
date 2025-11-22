@@ -146,6 +146,36 @@ docker-compose logs -f
 6.  **[其他情况]** (如 `SPAM`, `OTHER`):
       * 标记已读。**(结束)**
 
+
+      ## 🛡️ 常见操作指南
+
+### 如何屏蔽特定发件人或整个域名？
+
+如果您需要屏蔽频繁发送垃圾邮件的特定邮箱，或者屏蔽来自某个域名的所有邮件（以及防止回复内部讨论），您**无需修改代码**，只需更新配置即可：
+
+1.  **编辑配置**：打开项目根目录下的 `.env` 文件。
+
+2.  **屏蔽特定邮箱 (精确匹配)**：
+    找到 `EXCLUDE_ADDRESSES` 变量，添加您想屏蔽的完整邮箱地址，用逗号分隔。
+    ```bash
+    # 示例：屏蔽 spammer@bad-domain.com
+    EXCLUDE_ADDRESSES=reyoung2@reyoung.com,spammer@bad-domain.com
+    ```
+
+3.  **屏蔽整个域名 (后缀匹配)**：
+    找到 `EXCLUDE_DOMAINS` 变量，添加您想屏蔽的域名后缀（建议以 `@` 开头）。
+    * **功能说明**：这不仅会拦截该域名的**发件人**，还会检查邮件**正文**。如果正文中包含该域名（例如同事转发的邮件），程序也会自动跳过，防止误回复。
+    ```bash
+    # 示例：屏蔽 @spam.com 下的所有邮箱，以及 @competitor.com
+    EXCLUDE_DOMAINS=@reyoungh.com,@reyoung.com,@spam.com,@competitor.com
+    ```
+
+4.  **应用更改**：
+    修改完成后，运行以下命令以重建容器并应用新的环境变量（仅重启可能不生效）：
+    ```bash
+    docker-compose up -d
+    ```
+
 ## 📚 变更日志
 
 查看 [CHANGELOG.md](CHANGELOG.md) 以获取详细的版本历史记录。
