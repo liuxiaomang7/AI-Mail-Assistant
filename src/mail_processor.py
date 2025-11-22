@@ -68,7 +68,7 @@ EXCLUDE_ADDRESSES = [
     if addr.strip()
 ]
 
-# [✅ v1.6.0] 加载排除的域名
+# [v1.6.0] 加载排除的域名
 DEFAULT_EXCLUDE_DOMAINS = '@reyoungh.com,@reyoung.com'
 EXCLUDE_DOMAINS = [
     domain.strip().lower()
@@ -124,14 +124,14 @@ RETRYABLE_ERRORS = (APITimeoutError, APIConnectionError, RateLimitError)
 )
 def classify_email(sender, subject, body_text):
     """
-    [✅ v1.5.0] 使用 DeepSeek API 分析邮件内容 (带重试功能)。
-    使用详细的关键词列表来确保区域识别的准确性。
+    [v1.8.0] 使用 DeepSeek API 分析邮件内容。
+    新增 has_location_info 字段，用于识别未提及国家的邮件。
     """
     logger.info(f"开始 AI 分类邮件: {subject}")
     
     body_snippet = body_text[:4000]
     
-    # [✅ v1.5.0] 极大地增强了提示词，以确保国家/地区识别的准确性
+    # [v1.8.0] 提示词更新：增加 has_location_info 判断
     system_prompt = """
     你是一个邮件分类助手。你的任务是分析邮件内容，判断其意图和来源地。
     请严格按照 JSON 格式返回，只返回 JSON 对象，不要有任何其他文字。
@@ -140,7 +140,8 @@ def classify_email(sender, subject, body_text):
     {
       "intent": "INQUIRY | SPAM | OTHER",
       "is_blocked_region": true | false,
-      "is_priority_region": true | false
+      "is_priority_region": true | false,
+      "has_location_info": true | false
     }
 
     分类标准:
@@ -149,26 +150,22 @@ def classify_email(sender, subject, body_text):
         - "SPAM": 广告、诈骗、垃圾邮件、订阅通讯。
         - "OTHER": 其他（如通知、客户支持、无效信息、退信通知等）。
 
-    2.  "is_blocked_region" (受限区域 - 需求 #12):
-        - true: 如果邮件正文、主题或发件人信息中 **明确提到** 以下任一关键词 (不区分大小写)。
-        - 关键词 (地区): Africa, Middle East, Southeast Asia, **South Asia (南亚)**
-        - 关键词 (国家/地区): Taiwan, Korea (South Korea)
-        - 关键词 (非洲国家示例): Nigeria, Ethiopia, Egypt, DRC, Congo, Tanzania, South Africa, Kenya, Uganda, Algeria, Sudan, Morocco, Angola, Mozambique, Ghana, Madagascar, Cameroon, Côte d'Ivoire, Niger, Burkina Faso, Mali, Malawi, Zambia, Senegal, Chad, Somalia, Zimbabwe, Guinea, Rwanda, Benin, Burundi, Tunisia, Togo, Sierra Leone, Libya, Liberia, Mauritania, Namibia, Botswana, Gabon, Lesotho, Swaziland, Djibouti
-        - 关键词 (中东国家示例): Bahrain, Cyprus, Egypt, Iran, Iraq, Israel, Jordan, Kuwait, Lebanon, Oman, Qatar, Saudi Arabia, Syria, Turkey, United Arab Emirates (UAE), Yemen, Palestine
-        - 关键词 (东南亚国家示例): Vietnam, Thailand, Malaysia, Indonesia, Philippines, Singapore, Myanmar, Cambodia, Laos, Brunei, Timor-Leste
-        - **[✅ v1.7.0 优化] 关键词 (南亚国家示例): Pakistan, India, Bangladesh, Sri Lanka, Nepal, Bhutan, Maldives**
+    2.  "is_blocked_region" (受限区域):
+        - true: 如果邮件明确提到: Africa, Middle East, Southeast Asia, South Asia (南亚), Taiwan, Korea (South Korea).
+        - 具体国家关键词同之前规则 (例如: Pakistan, India, Vietnam, Nigeria, Iran, etc.)。
 
-    3.  "is_priority_region" (优先区域 - 需求 #13):
-        - true: 如果邮件正文、主题或发件人信息中 **明确提到** 以下任一关键词 (不区分大小写)。
-        - 关键词 (地区): European Union (EU)
-        - 关键词 (国家): Australia, New Zealand, USA (United States), Canada
-        - 关键词 (欧盟国家示例): Austria, Belgium, Bulgaria, Croatia, Republic of Cyprus, Czech Republic, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, Sweden
+    3.  "is_priority_region" (优先区域):
+        - true: 如果邮件明确提到: EU (European Union), USA, Canada, Australia, New Zealand.
+        - 欧盟成员国包括: Germany, France, Italy, Spain, Netherlands, Poland, etc.
+
+    4.  "has_location_info" (是否包含地理信息 - 新规则):
+        - true: 如果邮件中提到了**任何**国家、城市、地区、州、省份，或者包含明确的地址签名。
+        - false: 如果邮件完全没有提及任何地理位置信息（例如只说了 "I want to buy amoxicillin" 但没有签名档，没有提到国家）。
+        - 注意：如果 "is_blocked_region" 或 "is_priority_region" 为 true，则 "has_location_info" 必须为 true。
 
     [重要规则]:
-    - 你的任务是“关键词匹配”。如果邮件中出现了 'Pakistan'，'is_blocked_region' 就必须是 true。
-    - "is_blocked_region" 和 "is_priority_region" 可以同时为 true (例如邮件同时提到了德国和台湾)。
-    - 我们的处理逻辑会优先处理 "is_blocked_region"。
-    - "intent" 为 "INQUIRY" 的判断应独立于地区判断。
+    - 你的任务是“关键词匹配”。
+    - 我们的策略是：未知来源的询盘视为高优先级。
     """
     
     user_prompt = f"""
@@ -185,7 +182,8 @@ def classify_email(sender, subject, body_text):
     default_response = {
         "intent": "OTHER", 
         "is_blocked_region": False, 
-        "is_priority_region": False
+        "is_priority_region": False,
+        "has_location_info": True # 默认假设有位置，防止误判为优先，保守处理
     }
     
     try:
@@ -205,6 +203,10 @@ def classify_email(sender, subject, body_text):
         
         try:
             classification_data = json.loads(raw_response)
+            # 简单的健壮性检查，补充默认值
+            if 'has_location_info' not in classification_data:
+                classification_data['has_location_info'] = True 
+
             if 'intent' not in classification_data or 'is_blocked_region' not in classification_data:
                 logger.warning(f"AI 返回的 JSON 格式不完整: {raw_response}")
                 return default_response
@@ -222,15 +224,13 @@ def classify_email(sender, subject, body_text):
 
 def send_auto_reply(original_msg, custom_cc_list=None):
     """
-    发送标准自动回复并抄送 (使用 465 端口, SMTPS, 带 20 秒超时)。
-    [v1.4.0] 如果 custom_cc_list 提供了，则使用它，否则使用全局 CC_LIST。
+    发送标准自动回复并抄送。
     """
     
     cc_to_use = custom_cc_list if custom_cc_list is not None else CC_LIST
     
     logger.info(f"向 {original_msg.from_} 发送自动回复 (抄送至: {', '.join(cc_to_use)})...")
 
-    # --- [v1.2.0] 新功能：构建引用原文 (此逻辑保留不变) ---
     original_text = original_msg.text
     if not original_text and original_msg.html:
         try:
@@ -244,7 +244,6 @@ def send_auto_reply(original_msg, custom_cc_list=None):
     elif not original_text:
         original_text = "[Original email had no body]"
 
-    # [v1.2.1 修复] 截断逻辑 (此逻辑保留不变)
     max_quote_len = 3000 
     lines = original_text.splitlines()
     quoted_lines = []
@@ -264,7 +263,6 @@ def send_auto_reply(original_msg, custom_cc_list=None):
 
     quoted_body = "\n".join(quoted_lines)
 
-    # 4. 构建回复正文 (此逻辑保留不变)
     reply_template = "Dear friend,\nGood day!\n\nGlad to receive your email, and I will contact you soon.\n\nBest Regards!\nJed"
     reply_header = f"\n\n--- Original Message ---\nOn {original_msg.date_str}, {original_msg.from_} wrote:\n"
     reply_body = f"{reply_template}\n{reply_header}\n{quoted_body}"
@@ -333,33 +331,26 @@ def process_emails():
 
                 logger.info(f"--- 正在处理 (UID: {uid}): {sender} - {subject} ---")
 
-                # [✅ v1.6.0 逻辑更新] 动态检查排除的域名
-                # 1. 检查精确排除地址 (例如 'reyoung2@reyoung.com')
+                # 1. 排除逻辑
                 is_excluded_address = sender in EXCLUDE_ADDRESSES
-                
-                # 2. 检查排除的域名后缀 (例如 '@reyoung.com')
                 is_excluded_domain = False
-                if not is_excluded_address: # 优化：如果已匹配精确地址，则跳过
+                if not is_excluded_address: 
                     for domain in EXCLUDE_DOMAINS:
                         if sender.endswith(domain):
                             is_excluded_domain = True
-                            break # 找到一个匹配项即可
+                            break 
                 
-                # 如果任一条件满足，则跳过
                 if is_excluded_address or is_excluded_domain:
                     logger.info(f"邮件来自排除地址或域 {sender}，标记为已读。")
                     mailbox.flag(uid, r'\Seen', True)
                     continue 
-                # [✅ v1.6.0 逻辑更新结束]
 
                 # 2. 清理正文
                 body_text = clean_email_body(msg.html or msg.text)
 
-                # [✅ v1.7.0 新增逻辑] 检查邮件正文是否包含内部域名
+                # 内部讨论检查
                 body_text_lower = body_text.lower()
                 contains_internal_domain = False
-                
-                # EXCLUDE_DOMAINS 是从 .env 加载的，并且在启动时已转为小写
                 for domain in EXCLUDE_DOMAINS: 
                     if domain in body_text_lower:
                         contains_internal_domain = True
@@ -370,18 +361,19 @@ def process_emails():
                     logger.info(f"邮件 (UID: {uid}) 判定为内部讨论，标记为已读并跳过。")
                     mailbox.flag(uid, r'\Seen', True)
                     continue
-                # [✅ v1.7.0 逻辑结束]
 
-                # 3. AI 分类 (已加入重试)
+                # 3. AI 分类
                 classification_data = classify_email(sender, subject, body_text)
 
                 intent = classification_data.get('intent', 'OTHER')
                 is_blocked = classification_data.get('is_blocked_region', False)
                 is_priority = classification_data.get('is_priority_region', False)
+                # [v1.8.0] 获取是否包含位置信息，如果 AI 没返回，默认为 True (保守策略)
+                has_location = classification_data.get('has_location_info', True)
 
-                # --- [v1.4.0] 执行新的多重判断逻辑 ---
+                # --- [v1.8.0] 核心判断逻辑更新 ---
 
-                # 规则 1 (需求 #12): 受限区域 (最高优先级)
+                # 规则 1: 受限区域 (最高优先级) -> 删除
                 if is_blocked:
                     logger.warning(f"邮件 (UID: {uid}) 被分类为 [受限区域]，将移动到 'Trash'。")
                     try:
@@ -391,32 +383,35 @@ def process_emails():
                         logger.error(f"移动邮件 (UID: {uid}) 到 'Trash' 失败: {move_err}")
                         mailbox.flag(uid, r'\Seen', True) 
                     
-                # 规则 2 (需求 #13): 优先区域询盘
-                elif intent == 'INQUIRY' and is_priority:
-                    logger.info(f"邮件 (UID: {uid}) 被分类为 [优先区域询盘]。")
-                    # [v1.5.0] 使用从 .env 加载的 PRIORITY_CC_LIST
+                # 规则 2: 优先区域询盘 OR 未知区域询盘 -> 优先 CC 列表
+                # [v1.8.0] 新增了 `or not has_location` 条件
+                elif intent == 'INQUIRY' and (is_priority or not has_location):
+                    reason = "优先区域" if is_priority else "位置未知"
+                    logger.info(f"邮件 (UID: {uid}) 被分类为 [{reason}询盘]。")
+                    
+                    # 使用 PRIORITY_CC_LIST (reyoung@reyoung.com)
                     if send_auto_reply(msg, custom_cc_list=PRIORITY_CC_LIST):
                         logger.info("回复成功，标记为已读。")
                         mailbox.flag(uid, r'\Seen', True)
                     else:
                         logger.error(f"回复失败 (UID: {uid})，不标记已读，等待下次处理。")
 
-                # 规则 3 (需求 #3): 标准新询盘
+                # 规则 3: 标准新询盘 (提到国家但非受限/优先，如巴西、俄罗斯) -> 标准 CC 列表
                 elif intent == 'INQUIRY':
                     logger.info(f"邮件 (UID: {uid}) 被分类为 [标准新询盘]。")
-                    # 使用“默认抄送列表” (传入 None)
+                    # 使用默认 CC_LIST (reyoung2@reyoung.com)
                     if send_auto_reply(msg, custom_cc_list=None):
                         logger.info("回复成功，标记为已读。")
                         mailbox.flag(uid, r'\Seen', True)
                     else:
                         logger.error(f"回复失败 (UID: {uid})，不标记已读，等待下次处理。")
 
-                # 规则 4 (需求 #2): SPAM / OTHER
+                # 规则 4: SPAM / OTHER
                 else: 
                     logger.info(f"邮件 (UID: {uid}) 被分类为 [{intent}]，标记已读。")
                     mailbox.flag(uid, r'\Seen', True)
                 
-                # --- [v1.4.0] 逻辑结束 ---
+                # --- 逻辑结束 ---
 
             except Exception as e:
                 logger.error(f"处理邮件 (UID: {msg.uid}) 时发生内部错误: {e}")
@@ -443,14 +438,14 @@ def process_emails():
 # --- 4. 启动器 ---
 
 if __name__ == "__main__":
-    # [✅ v1.7.0] 更新启动日志版本号
-    logger.info(f"邮件自动处理器 v1.7.0 启动，轮询间隔: {POLLING_INTERVAL} 秒。")
+    # [v1.8.0] 更新启动日志版本号
+    logger.info(f"邮件自动处理器 v1.8.0 启动，轮询间隔: {POLLING_INTERVAL} 秒。")
     
     while True:
         try:
             process_emails()
         except Exception as e:
-            logger.critical(f"主循环发生未捕J获的致命错误: {e}")
+            logger.critical(f"主循环发生未捕获的致命错误: {e}")
             
         logger.info(f"休眠 {POLLING_INTERVAL} 秒...")
         time.sleep(POLLING_INTERVAL)
